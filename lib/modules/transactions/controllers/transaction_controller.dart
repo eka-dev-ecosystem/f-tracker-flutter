@@ -75,6 +75,7 @@ class TransactionController extends GetxController {
   final incomeTotal = 0.0.obs;
   final expenseTotal = 0.0.obs;
   final balance = 0.0.obs;
+  final filterTotalCount = 0.obs;
 
   // Pagination & Infinite Scroll
   final currentPage = 1.obs;
@@ -221,15 +222,16 @@ class TransactionController extends GetxController {
 
     if (list.isEmpty) {
       transactions.clear();
+      filterTotalCount.value = 0;
       _recalculateSummary();
       return;
     }
 
-    list = list.where(_matchesCurrentFilter).toList();
-    _sortTransactionList(list);
+    final filtered = list.where(_matchesCurrentFilter).toList();
+    _sortTransactionList(filtered);
 
-    transactions.assignAll(list);
-    _recalculateSummary();
+    transactions.assignAll(filtered);
+    _recalculateSummaryFromList(filtered);
   }
 
   @override
@@ -238,8 +240,6 @@ class TransactionController extends GetxController {
     scrollController.addListener(_onScroll);
     _loadCachedTransactions();
     fetchTransactions();
-    // Background full sync so local cache contains historical data
-    fetchFullHistory();
   }
 
   void _onScroll() {
@@ -473,6 +473,9 @@ class TransactionController extends GetxController {
       currentPage.value = 1;
       nextCursor.value = res.nextCursor;
       hasMore.value = res.hasMore;
+      if (res.total > 0 && filterTotalCount.value == 0) {
+        filterTotalCount.value = res.total;
+      }
 
       // Preserve any pending local items awaiting sync
       final pendingItems = transactions.where((t) => t.isPendingSync).toList();
@@ -602,6 +605,10 @@ class TransactionController extends GetxController {
         incomeTotal.value = (summary['incomeTotal'] as num?)?.toDouble() ?? 0.0;
         expenseTotal.value = (summary['expenseTotal'] as num?)?.toDouble() ?? 0.0;
         balance.value = (summary['balance'] as num?)?.toDouble() ?? 0.0;
+        final count = (summary['totalCount'] as num?)?.toInt() ??
+            (summary['transactionCount'] as num?)?.toInt() ??
+            0;
+        filterTotalCount.value = count;
         return;
       }
     } catch (e) {
@@ -609,13 +616,30 @@ class TransactionController extends GetxController {
         return;
       }
     }
-    _recalculateSummary();
+    // Only fallback if offline or no server response
+    if (!syncService.isOnline.value) {
+      _loadCachedSummary();
+    }
   }
 
-  void _recalculateSummary() {
+  void _loadCachedSummary() {
+    final cached = storageService.cachedTransactions;
+    var list = <TransactionModel>[];
+    if (cached.isNotEmpty) {
+      try {
+        list = cached
+            .map((e) => TransactionModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      } catch (_) {}
+    }
+    final filtered = list.where(_matchesCurrentFilter).toList();
+    _recalculateSummaryFromList(filtered);
+  }
+
+  void _recalculateSummaryFromList(List<TransactionModel> list) {
     double inc = 0;
     double exp = 0;
-    for (final t in transactions) {
+    for (final t in list) {
       if (t.isIncome) {
         inc += t.amount;
       } else {
@@ -625,6 +649,11 @@ class TransactionController extends GetxController {
     incomeTotal.value = inc;
     expenseTotal.value = exp;
     balance.value = inc - exp;
+    filterTotalCount.value = list.length;
+  }
+
+  void _recalculateSummary() {
+    _loadCachedSummary();
   }
 
   void setFilterType(String type) {

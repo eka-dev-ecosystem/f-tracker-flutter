@@ -383,7 +383,7 @@ class TransactionsView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${controller.transactions.length} Transactions',
+                '${controller.filterTotalCount.value > 0 ? controller.filterTotalCount.value : controller.transactions.length} Transactions',
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
               Row(
