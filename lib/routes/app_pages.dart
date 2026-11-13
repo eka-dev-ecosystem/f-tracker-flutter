@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 import '../modules/analytics/bindings/analytics_binding.dart';
@@ -26,6 +27,10 @@ class AppPages {
   static const initial = Routes.splash;
 
   static final routes = <GetPage>[
+    GetPage(
+      name: '/connect-hub',
+      page: () => const SizedBox.shrink(),
+    ),
     GetPage(
       name: Routes.splash,
       page: () => const SplashView(),

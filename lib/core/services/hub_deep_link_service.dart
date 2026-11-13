@@ -15,6 +15,9 @@ class HubDeepLinkService extends GetxService {
   static HubDeepLinkService get instance => Get.find<HubDeepLinkService>();
 
   static Uri? pendingDeepLinkUri;
+  static bool isBottomSheetOpen = false;
+  static String? activeSessionCode;
+  static DateTime? lastHandledTime;
 
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
@@ -61,6 +64,23 @@ class HubDeepLinkService extends GetxService {
         return;
       }
 
+      final now = DateTime.now();
+      // Deduplicate: If same session was handled within the last 3 seconds, ignore duplicate stream event
+      if (activeSessionCode == sessionCode &&
+          lastHandledTime != null &&
+          now.difference(lastHandledTime!).inSeconds < 3) {
+        LoggerService.i('Ignoring duplicate connect-hub trigger within 3s for session: $sessionCode', tag: 'HubDeepLink');
+        return;
+      }
+
+      // If bottom sheet is already actively showing for this session, ignore
+      if (isBottomSheetOpen && activeSessionCode == sessionCode) {
+        LoggerService.i('Confirmation sheet already visible for session: $sessionCode', tag: 'HubDeepLink');
+        return;
+      }
+
+      lastHandledTime = now;
+      activeSessionCode = sessionCode;
       pendingDeepLinkUri = uri;
 
       // If app is currently on splash screen, wait until SplashController navigates
@@ -76,7 +96,6 @@ class HubDeepLinkService extends GetxService {
   void onNavigationReady() {
     final uri = pendingDeepLinkUri;
     if (uri != null) {
-      pendingDeepLinkUri = null;
       final sessionCode = uri.queryParameters['session_code'];
       final callbackUrl = uri.queryParameters['callback_url'] ?? 'ekahub://link-callback';
       if (sessionCode != null && sessionCode.isNotEmpty) {
@@ -87,19 +106,21 @@ class HubDeepLinkService extends GetxService {
   }
 
   void _presentConfirmationSheet(String sessionCode, String callbackUrl) {
+    if (isBottomSheetOpen || (Get.isBottomSheetOpen ?? false)) {
+      LoggerService.i('Sheet is already displayed; skipping duplicate request', tag: 'HubDeepLink');
+      return;
+    }
+
     void tryShow() {
-      if (Get.context != null && Get.isOverlaysClosed) {
+      if (isBottomSheetOpen || (Get.isBottomSheetOpen ?? false)) {
+        return;
+      }
+
+      if (Get.context != null) {
         showHubLinkConfirmationSheet(
           sessionCode: sessionCode,
           callbackUrl: callbackUrl,
         );
-      } else if (Get.context != null) {
-        Future.delayed(const Duration(milliseconds: 150), () {
-          showHubLinkConfirmationSheet(
-            sessionCode: sessionCode,
-            callbackUrl: callbackUrl,
-          );
-        });
       } else {
         Future.delayed(const Duration(milliseconds: 100), tryShow);
       }
@@ -114,6 +135,13 @@ class HubDeepLinkService extends GetxService {
     required String sessionCode,
     required String callbackUrl,
   }) {
+    if (isBottomSheetOpen || (Get.isBottomSheetOpen ?? false)) {
+      LoggerService.i('showHubLinkConfirmationSheet aborted: sheet already active', tag: 'HubDeepLink');
+      return;
+    }
+
+    isBottomSheetOpen = true;
+    activeSessionCode = sessionCode;
     final storage = Get.find<StorageService>();
 
     if (!storage.isLoggedIn || storage.user == null) {
@@ -138,13 +166,23 @@ class HubDeepLinkService extends GetxService {
         cancelTextColor: AppColors.textSecondary,
         onConfirm: () {
           Get.back();
+          isBottomSheetOpen = false;
+          activeSessionCode = null;
+          pendingDeepLinkUri = null;
           // Navigate to login
           Get.toNamed('/login');
         },
         onCancel: () {
+          isBottomSheetOpen = false;
+          activeSessionCode = null;
+          pendingDeepLinkUri = null;
           _launchCallback(callbackUrl, status: 'cancelled');
         },
-      );
+      ).whenComplete(() {
+        isBottomSheetOpen = false;
+        activeSessionCode = null;
+        pendingDeepLinkUri = null;
+      });
       return;
     }
 
@@ -413,7 +451,12 @@ class HubDeepLinkService extends GetxService {
       isDismissible: !isLoading.value,
       enableDrag: !isLoading.value,
       isScrollControlled: true,
-    );
+    ).whenComplete(() {
+      LoggerService.i('Hub confirmation sheet dismissed/closed', tag: 'HubDeepLink');
+      isBottomSheetOpen = false;
+      activeSessionCode = null;
+      pendingDeepLinkUri = null;
+    });
   }
 
   Future<void> _executeExchange({
@@ -488,6 +531,8 @@ class HubDeepLinkService extends GetxService {
   }
 
   Future<void> _launchCallback(String callbackUrl, {required String status}) async {
+    isBottomSheetOpen = false;
+    activeSessionCode = null;
     pendingDeepLinkUri = null;
     try {
       final baseUri = Uri.parse(callbackUrl);

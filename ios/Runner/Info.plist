@@ -93,5 +93,7 @@
 		<string>ekahub</string>
 		<string>taskhub</string>
 	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>
