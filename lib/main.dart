@@ -11,7 +11,6 @@ import 'core/services/storage_service.dart';
 import 'core/services/sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_pages.dart';
-import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,30 +60,17 @@ Future<void> main() async {
   ).init();
   Get.put<SyncService>(syncService, permanent: true);
 
-  // Check if app was cold-launched via deep link
-  final initialDeepLink = await HubDeepLinkService.checkInitialUri();
-  final isDeepLinkLaunch = initialDeepLink != null;
-
   final hubDeepLinkService = await HubDeepLinkService().init();
   Get.put<HubDeepLinkService>(hubDeepLinkService, permanent: true);
 
-  // If launched via deep link, DO NOT TRIGGER SPLASH SCREEN!
-  final String startRoute = isDeepLinkLaunch
-      ? (storageService.isLoggedIn ? Routes.dashboard : Routes.login)
-      : AppPages.initial;
-
-  LoggerService.i(
-    'F-Tracker Core initialized (initialRoute: $startRoute, isDeepLink: $isDeepLinkLaunch)',
-    tag: 'Bootstrap',
-  );
+  LoggerService.i('F-Tracker Core & Sync Services initialized', tag: 'Bootstrap');
 
   // 3. Run Application
-  runApp(FTrackerApp(initialRoute: startRoute));
+  runApp(const FTrackerApp());
 }
 
 class FTrackerApp extends StatelessWidget {
-  final String initialRoute;
-  const FTrackerApp({super.key, this.initialRoute = AppPages.initial});
+  const FTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +79,7 @@ class FTrackerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
-      initialRoute: initialRoute,
+      initialRoute: AppPages.initial,
       getPages: AppPages.routes,
       defaultTransition: Transition.cupertino,
     );

@@ -19,28 +19,30 @@ class SplashController extends GetxController {
   }
 
   Future<void> _checkAuth() async {
-    // 1800ms duration allows the Grab/Gojek-style spring entrance and breathing aura to play fluidly
-    await Future.delayed(const Duration(milliseconds: 1800));
+    const maxWaitMs = 1000;
+    var elapsedMs = 0;
 
-    // Abort automatic navigation if deep link handshake is currently active
-    if (HubDeepLinkService.isHandlingDeepLink) {
-      LoggerService.i('Splash auto-navigation skipped: deep link in progress', tag: 'Splash');
-      return;
+    // Check for deep link or wait for entrance animation
+    while (elapsedMs < maxWaitMs) {
+      if (HubDeepLinkService.pendingDeepLinkUri != null) {
+        LoggerService.i('Deep link detected during splash ($elapsedMs ms); accelerating transition', tag: 'Splash');
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 50));
+      elapsedMs += 50;
     }
 
-    isExiting.value = true;
-    AppHaptics.light();
-    await Future.delayed(const Duration(milliseconds: 320));
-
-    if (HubDeepLinkService.isHandlingDeepLink) {
-      LoggerService.i('Splash auto-navigation skipped: deep link in progress', tag: 'Splash');
-      return;
+    final hasDeepLink = HubDeepLinkService.pendingDeepLinkUri != null;
+    if (!hasDeepLink) {
+      isExiting.value = true;
+      AppHaptics.light();
+      await Future.delayed(const Duration(milliseconds: 200));
     }
 
-    if (storageService.isLoggedIn) {
-      Get.offAllNamed(Routes.dashboard);
-    } else {
-      Get.offAllNamed(Routes.login);
-    }
+    final targetRoute = storageService.isLoggedIn ? Routes.dashboard : Routes.login;
+    await Get.offAllNamed(targetRoute);
+
+    // If deep link is pending, show confirmation sheet now that destination page is active
+    HubDeepLinkService.instance.onNavigationReady();
   }
 }

@@ -9,31 +9,12 @@ import '../services/logger_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_colors.dart';
 import '../../modules/auth/models/user_model.dart';
+import '../../routes/app_routes.dart';
 
 class HubDeepLinkService extends GetxService {
   static HubDeepLinkService get instance => Get.find<HubDeepLinkService>();
 
-  static bool isHandlingDeepLink = false;
-  static Uri? pendingInitialUri;
-
-  static Future<Uri?> checkInitialUri() async {
-    try {
-      final appLinks = AppLinks();
-      final uri = await appLinks.getInitialLink();
-      if (uri != null && uri.scheme == 'ftracker') {
-        final hostOrPath = uri.host.isNotEmpty ? uri.host : uri.path.replaceAll('/', '');
-        if (hostOrPath == 'connect-hub') {
-          isHandlingDeepLink = true;
-          pendingInitialUri = uri;
-          LoggerService.i('Pre-launch connect-hub deep link captured: $uri', tag: 'HubDeepLink');
-          return uri;
-        }
-      }
-    } catch (e) {
-      LoggerService.w('Error checking initial uri: $e', tag: 'HubDeepLink');
-    }
-    return null;
-  }
+  static Uri? pendingDeepLinkUri;
 
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
@@ -45,29 +26,21 @@ class HubDeepLinkService extends GetxService {
   }
 
   void _initDeepLinks() {
-    // 1. Process saved initial link if cold launched via deep link
-    if (pendingInitialUri != null) {
-      final uri = pendingInitialUri!;
-      pendingInitialUri = null;
-      LoggerService.i('Processing saved initial deep link: $uri', tag: 'HubDeepLink');
-      _scheduleHandleUri(uri);
-    } else {
-      // 2. Check initial link via platform if not yet captured
-      _appLinks.getInitialLink().then((uri) {
-        if (uri != null) {
-          LoggerService.i('Initial deep link detected: $uri', tag: 'HubDeepLink');
-          _scheduleHandleUri(uri);
-        }
-      }).catchError((err) {
-        LoggerService.w('Failed to get initial deep link: $err', tag: 'HubDeepLink');
-      });
-    }
+    // 1. Initial link
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) {
+        LoggerService.i('Initial deep link detected: $uri', tag: 'HubDeepLink');
+        handleIncomingUri(uri);
+      }
+    }).catchError((err) {
+      LoggerService.w('Failed to get initial deep link: $err', tag: 'HubDeepLink');
+    });
 
-    // 3. Listen to subsequent stream of deep links while running
+    // 2. Listen to subsequent stream of deep links while running
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
         LoggerService.i('Incoming deep link stream: $uri', tag: 'HubDeepLink');
-        _scheduleHandleUri(uri);
+        handleIncomingUri(uri);
       },
       onError: (err) {
         LoggerService.w('Deep link stream error: $err', tag: 'HubDeepLink');
@@ -75,47 +48,66 @@ class HubDeepLinkService extends GetxService {
     );
   }
 
-  void _scheduleHandleUri(Uri uri) {
-    if (uri.scheme != 'ftracker') return;
-
-    final hostOrPath = uri.host.isNotEmpty ? uri.host : uri.path.replaceAll('/', '');
-    if (hostOrPath == 'connect-hub') {
-      isHandlingDeepLink = true;
-
-      void tryShow() {
-        if (Get.context != null) {
-          handleIncomingUri(uri);
-        } else {
-          Future.delayed(const Duration(milliseconds: 80), tryShow);
-        }
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        tryShow();
-      });
-    }
-  }
-
   void handleIncomingUri(Uri uri) {
     if (uri.scheme != 'ftracker') return;
 
     final hostOrPath = uri.host.isNotEmpty ? uri.host : uri.path.replaceAll('/', '');
     if (hostOrPath == 'connect-hub') {
-      isHandlingDeepLink = true;
       final sessionCode = uri.queryParameters['session_code'];
       final callbackUrl = uri.queryParameters['callback_url'] ?? 'ekahub://link-callback';
 
       if (sessionCode == null || sessionCode.isEmpty) {
         LoggerService.w('connect-hub deep link missing session_code: $uri', tag: 'HubDeepLink');
-        isHandlingDeepLink = false;
         return;
       }
 
-      showHubLinkConfirmationSheet(
-        sessionCode: sessionCode,
-        callbackUrl: callbackUrl,
-      );
+      pendingDeepLinkUri = uri;
+
+      // If app is currently on splash screen, wait until SplashController navigates
+      if (Get.currentRoute == Routes.splash || Get.currentRoute.isEmpty) {
+        LoggerService.i('Current route is ${Get.currentRoute}; deferring confirmation sheet until target page ready', tag: 'HubDeepLink');
+        return;
+      }
+
+      _presentConfirmationSheet(sessionCode, callbackUrl);
     }
+  }
+
+  void onNavigationReady() {
+    final uri = pendingDeepLinkUri;
+    if (uri != null) {
+      pendingDeepLinkUri = null;
+      final sessionCode = uri.queryParameters['session_code'];
+      final callbackUrl = uri.queryParameters['callback_url'] ?? 'ekahub://link-callback';
+      if (sessionCode != null && sessionCode.isNotEmpty) {
+        LoggerService.i('Triggering deferred deep link sheet on target route: ${Get.currentRoute}', tag: 'HubDeepLink');
+        _presentConfirmationSheet(sessionCode, callbackUrl);
+      }
+    }
+  }
+
+  void _presentConfirmationSheet(String sessionCode, String callbackUrl) {
+    void tryShow() {
+      if (Get.context != null && Get.isOverlaysClosed) {
+        showHubLinkConfirmationSheet(
+          sessionCode: sessionCode,
+          callbackUrl: callbackUrl,
+        );
+      } else if (Get.context != null) {
+        Future.delayed(const Duration(milliseconds: 150), () {
+          showHubLinkConfirmationSheet(
+            sessionCode: sessionCode,
+            callbackUrl: callbackUrl,
+          );
+        });
+      } else {
+        Future.delayed(const Duration(milliseconds: 100), tryShow);
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      tryShow();
+    });
   }
 
   void showHubLinkConfirmationSheet({
@@ -496,7 +488,7 @@ class HubDeepLinkService extends GetxService {
   }
 
   Future<void> _launchCallback(String callbackUrl, {required String status}) async {
-    isHandlingDeepLink = false;
+    pendingDeepLinkUri = null;
     try {
       final baseUri = Uri.parse(callbackUrl);
       final queryParams = Map<String, String>.from(baseUri.queryParameters);
