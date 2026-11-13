@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'core/constants/app_constants.dart';
 import 'core/network/api_client.dart';
 import 'core/services/crash_reporter_service.dart';
+import 'core/services/hub_deep_link_service.dart';
 import 'core/services/logger_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/sync_service.dart';
@@ -58,6 +59,9 @@ Future<void> main() async {
     apiClient: apiClient,
   ).init();
   Get.put<SyncService>(syncService, permanent: true);
+
+  final hubDeepLinkService = await HubDeepLinkService().init();
+  Get.put<HubDeepLinkService>(hubDeepLinkService, permanent: true);
 
   LoggerService.i('F-Tracker Core & Sync Services initialized', tag: 'Bootstrap');
 

@@ -77,6 +77,21 @@
 				<string>$(GOOGLE_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>cloud.eka_dev.ftracker</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ftracker</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>ekahub</string>
+		<string>taskhub</string>
 	</array>
 </dict>
 </plist>
