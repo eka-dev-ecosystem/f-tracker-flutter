@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import '../../../core/services/hub_deep_link_service.dart';
 import '../../../core/services/logger_service.dart';
@@ -19,7 +20,7 @@ class SplashController extends GetxController {
   }
 
   Future<void> _checkAuth() async {
-    const maxWaitMs = 1000;
+    const maxWaitMs = 1200;
     var elapsedMs = 0;
 
     // Check for deep link or wait for entrance animation
@@ -40,9 +41,13 @@ class SplashController extends GetxController {
     }
 
     final targetRoute = storageService.isLoggedIn ? Routes.dashboard : Routes.login;
-    await Get.offAllNamed(targetRoute);
+    
+    // Do not await Get.offAllNamed because it only completes when targetRoute is popped from navigator!
+    Get.offAllNamed(targetRoute);
 
-    // If deep link is pending, show confirmation sheet now that destination page is active
-    HubDeepLinkService.instance.onNavigationReady();
+    // Notify HubDeepLinkService on next frame when destination page is mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      HubDeepLinkService.instance.onNavigationReady();
+    });
   }
 }

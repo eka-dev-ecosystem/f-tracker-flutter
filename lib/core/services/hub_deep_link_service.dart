@@ -65,10 +65,11 @@ class HubDeepLinkService extends GetxService {
       }
 
       final now = DateTime.now();
-      // Deduplicate: If same session was handled within the last 3 seconds, ignore duplicate stream event
+      // Deduplicate: If same session was handled within the last 3 seconds and sheet is already open
       if (activeSessionCode == sessionCode &&
           lastHandledTime != null &&
-          now.difference(lastHandledTime!).inSeconds < 3) {
+          now.difference(lastHandledTime!).inSeconds < 3 &&
+          (isBottomSheetOpen || (Get.isBottomSheetOpen ?? false))) {
         LoggerService.i('Ignoring duplicate connect-hub trigger within 3s for session: $sessionCode', tag: 'HubDeepLink');
         return;
       }
@@ -82,12 +83,6 @@ class HubDeepLinkService extends GetxService {
       lastHandledTime = now;
       activeSessionCode = sessionCode;
       pendingDeepLinkUri = uri;
-
-      // If app is currently on splash screen, wait until SplashController navigates
-      if (Get.currentRoute == Routes.splash || Get.currentRoute.isEmpty) {
-        LoggerService.i('Current route is ${Get.currentRoute}; deferring confirmation sheet until target page ready', tag: 'HubDeepLink');
-        return;
-      }
 
       _presentConfirmationSheet(sessionCode, callbackUrl);
     }
@@ -116,12 +111,14 @@ class HubDeepLinkService extends GetxService {
         return;
       }
 
-      if (Get.context != null) {
+      // Ensure Get.context is available and we are NOT on splash
+      if (Get.context != null && Get.currentRoute != Routes.splash && Get.currentRoute.isNotEmpty) {
         showHubLinkConfirmationSheet(
           sessionCode: sessionCode,
           callbackUrl: callbackUrl,
         );
       } else {
+        // App is still launching or on splash, poll every 100ms until target route is mounted
         Future.delayed(const Duration(milliseconds: 100), tryShow);
       }
     }

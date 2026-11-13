@@ -11,7 +11,6 @@ import 'core/services/storage_service.dart';
 import 'core/services/sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_pages.dart';
-import 'routes/app_routes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,15 +74,12 @@ class FTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storage = Get.find<StorageService>();
-    final initialRoute = storage.isLoggedIn ? Routes.dashboard : AppPages.initial;
-
     return GetMaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
-      initialRoute: initialRoute,
+      initialRoute: AppPages.initial,
       getPages: AppPages.routes,
       unknownRoute: GetPage(
         name: '/not-found',
