@@ -50,8 +50,14 @@ class SocialAuthService {
   static GoogleSignIn get _googleSignIn {
     if (_googleSignInInstance != null) return _googleSignInInstance!;
 
-    final serverClientId = dotenv.env['GOOGLE_SERVER_CLIENT_ID'];
-    final clientId = Platform.isIOS ? dotenv.env['GOOGLE_IOS_CLIENT_ID'] : null;
+    String? serverClientId;
+    String? clientId;
+    try {
+      if (dotenv.isInitialized) {
+        serverClientId = dotenv.maybeGet('GOOGLE_SERVER_CLIENT_ID');
+        clientId = Platform.isIOS ? dotenv.maybeGet('GOOGLE_IOS_CLIENT_ID') : null;
+      }
+    } catch (_) {}
 
     _googleSignInInstance = GoogleSignIn(
       serverClientId: serverClientId?.isNotEmpty == true ? serverClientId : null,

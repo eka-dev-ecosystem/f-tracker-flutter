@@ -3,8 +3,20 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class ApiEndpoints {
   ApiEndpoints._();
 
-  static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+  static String get baseUrl {
+    try {
+      if (dotenv.isInitialized) {
+        final url = dotenv.maybeGet('API_BASE_URL');
+        if (url != null && url.isNotEmpty) {
+          return url;
+        }
+      }
+    } catch (_) {}
+    return const String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'https://be-ftracker.eka-dev.cloud',
+    );
+  }
 
   // Auth Routes (/auth/v1)
   static const String login = '/auth/v1/login';

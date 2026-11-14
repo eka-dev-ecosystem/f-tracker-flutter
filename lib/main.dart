@@ -17,9 +17,15 @@ Future<void> main() async {
 
   // 1. Load Environment Variables
   try {
-    await dotenv.load(fileName: '.env');
-    LoggerService.i('.env loaded successfully', tag: 'Bootstrap');
+    await dotenv.load(fileName: '.env', isOptional: true);
+    if (!dotenv.isInitialized) {
+      dotenv.loadFromString('');
+    }
+    LoggerService.i('.env loaded successfully (isInitialized=${dotenv.isInitialized})', tag: 'Bootstrap');
   } catch (e) {
+    try {
+      dotenv.loadFromString('');
+    } catch (_) {}
     LoggerService.w('.env could not be loaded, using defaults: $e', tag: 'Bootstrap');
   }
 

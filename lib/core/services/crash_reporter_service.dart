@@ -40,10 +40,12 @@ class CrashReporterService {
 
   String get _lokiUrl {
     try {
-      return dotenv.env['LOKI_URL'] ?? 'https://loki.eka-dev.cloud/loki/api/v1/push';
-    } catch (_) {
-      return 'https://loki.eka-dev.cloud/loki/api/v1/push';
-    }
+      if (dotenv.isInitialized) {
+        final url = dotenv.maybeGet('LOKI_URL');
+        if (url != null && url.isNotEmpty) return url;
+      }
+    } catch (_) {}
+    return 'https://loki.eka-dev.cloud/loki/api/v1/push';
   }
 
   String get _environment {
