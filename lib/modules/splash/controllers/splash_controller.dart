@@ -37,7 +37,8 @@ class SplashController extends GetxController {
     if (!hasDeepLink) {
       isExiting.value = true;
       AppHaptics.light();
-      await Future.delayed(const Duration(milliseconds: 200));
+      // Allow full 320ms exit scale & opacity animations to complete smoothly
+      await Future.delayed(const Duration(milliseconds: 320));
     }
 
     final targetRoute = storageService.isLoggedIn ? Routes.dashboard : Routes.login;
