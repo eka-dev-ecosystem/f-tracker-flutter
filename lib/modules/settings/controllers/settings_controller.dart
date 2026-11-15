@@ -26,6 +26,7 @@ class SettingsController extends GetxController {
   // Connected Accounts State
   final isGoogleLinked = false.obs;
   final googleEmail = RxnString();
+  final isAppleAvailable = false.obs;
   final isAppleLinked = false.obs;
   final appleEmail = RxnString();
   final isAppleRegistered = false.obs;
@@ -45,10 +46,16 @@ class SettingsController extends GetxController {
     isBiometricEnabled.value = storageService.isBiometricEnabled;
     currentTimezone.value = user?['timezone']?.toString() ?? 'UTC';
 
+    _checkAppleAvailability();
+
     // Populate connected accounts immediately from cached user data if available
     _populateFromUserData(user);
 
     _fetchUserSettings();
+  }
+
+  Future<void> _checkAppleAvailability() async {
+    isAppleAvailable.value = await SocialAuthService.isAppleSignInAvailable();
   }
 
   void _populateFromUserData(Map<String, dynamic>? data) {
@@ -171,6 +178,14 @@ class SettingsController extends GetxController {
   }
 
   Future<void> bindApple() async {
+    if (!isAppleAvailable.value) {
+      SnackbarService.error(
+        'Apple Sign-In is only available on supported Apple devices.',
+        title: 'Not Supported',
+      );
+      return;
+    }
+
     try {
       AppHaptics.selection();
       isBindingApple.value = true;

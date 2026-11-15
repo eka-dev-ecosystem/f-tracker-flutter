@@ -277,7 +277,7 @@ class SettingsView extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'In accordance with Apple App Store guidelines, you have the right to permanently delete your account and all transaction and category data at any time. This action cannot be undone.',
+                    'You have the right to permanently delete your account and all transaction and category data at any time. This action cannot be undone.',
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
                   const SizedBox(height: 14),
@@ -315,7 +315,7 @@ class SettingsView extends StatelessWidget {
                             ],
                           ),
                           content: const Text(
-                            'Are you sure you want to permanently delete this account?\n\nAll your transaction history, categories, and profile data will be permanently removed from the server and this device in compliance with Apple privacy requirements. This action is irreversible.',
+                            'Are you sure you want to permanently delete this account?\n\nAll your transaction history, categories, and profile data will be permanently removed from the server and this device in compliance with privacy regulations. This action is irreversible.',
                             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                           ),
                           actions: [
@@ -649,13 +649,18 @@ class SettingsView extends StatelessWidget {
   }
 
   Widget _buildConnectedAccounts(BuildContext context) {
-    return Column(
-      children: [
-        _buildGoogleAccountCard(context),
-        const SizedBox(height: 12),
-        _buildAppleAccountCard(context),
-      ],
-    );
+    return Obx(() {
+      final showApple = controller.isAppleAvailable.value;
+      return Column(
+        children: [
+          _buildGoogleAccountCard(context),
+          if (showApple) ...[
+            const SizedBox(height: 12),
+            _buildAppleAccountCard(context),
+          ],
+        ],
+      );
+    });
   }
 
   Widget _buildGoogleAccountCard(BuildContext context) {

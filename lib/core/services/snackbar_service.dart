@@ -21,21 +21,23 @@ class SnackbarService {
   }
 
   static void _dismissExisting() {
+    if (Get.overlayContext == null) return;
     if (Get.isSnackbarOpen) {
       Get.closeCurrentSnackbar();
     }
   }
 
   static void dismissAll() {
+    if (Get.overlayContext == null) return;
     if (Get.isSnackbarOpen) {
       Get.closeAllSnackbars();
     }
   }
 
-
   static void success(String message, {String title = 'Success'}) {
     if (_isDuplicate(message)) return;
     _dismissExisting();
+    if (Get.overlayContext == null) return;
 
     Get.snackbar(
       title,
@@ -55,6 +57,7 @@ class SnackbarService {
   static void error(String message, {String title = 'Failed'}) {
     if (_isDuplicate(message)) return;
     _dismissExisting();
+    if (Get.overlayContext == null) return;
 
     Get.snackbar(
       title,
@@ -74,6 +77,7 @@ class SnackbarService {
   static void warning(String message, {String title = 'Warning'}) {
     if (_isDuplicate(message)) return;
     _dismissExisting();
+    if (Get.overlayContext == null) return;
 
     Get.snackbar(
       title,
@@ -93,6 +97,7 @@ class SnackbarService {
   static void info(String message, {String title = 'Information'}) {
     if (_isDuplicate(message)) return;
     _dismissExisting();
+    if (Get.overlayContext == null) return;
 
     Get.snackbar(
       title,
