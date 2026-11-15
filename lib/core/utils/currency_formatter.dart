@@ -175,11 +175,12 @@ class CurrencyFormatter {
     if (date == null) return '';
     DateTime dt;
     if (date is DateTime) {
-      dt = DateTime(date.year, date.month, date.day);
+      dt = toUserTimezone(date, timezone);
+      dt = DateTime(dt.year, dt.month, dt.day);
     } else {
       final str = date.toString().trim();
       final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(str);
-      if (match != null) {
+      if (match != null && !str.contains('T') && !str.contains(':')) {
         dt = DateTime(
           int.parse(match.group(1)!),
           int.parse(match.group(2)!),
