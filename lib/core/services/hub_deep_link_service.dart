@@ -9,6 +9,8 @@ import '../services/logger_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_colors.dart';
 import '../../modules/auth/models/user_model.dart';
+import '../../modules/transactions/controllers/transaction_controller.dart';
+import '../../modules/transactions/views/widgets/transaction_card.dart';
 import '../../routes/app_routes.dart';
 
 class HubDeepLinkService extends GetxService {
@@ -85,19 +87,115 @@ class HubDeepLinkService extends GetxService {
       pendingDeepLinkUri = uri;
 
       _presentConfirmationSheet(sessionCode, callbackUrl);
+    } else if (hostOrPath == 'transactions' ||
+        hostOrPath == 'expenses' ||
+        hostOrPath == 'expense' ||
+        hostOrPath == 'transaction' ||
+        hostOrPath == 'income' ||
+        hostOrPath == 'incomes') {
+      _handleTransactionNavigation(uri);
     }
   }
 
   void onNavigationReady() {
     final uri = pendingDeepLinkUri;
     if (uri != null) {
-      final sessionCode = uri.queryParameters['session_code'];
-      final callbackUrl = uri.queryParameters['callback_url'] ?? 'ekahub://link-callback';
-      if (sessionCode != null && sessionCode.isNotEmpty) {
-        LoggerService.i('Triggering deferred deep link sheet on target route: ${Get.currentRoute}', tag: 'HubDeepLink');
-        _presentConfirmationSheet(sessionCode, callbackUrl);
+      final hostOrPath = uri.host.isNotEmpty ? uri.host : uri.path.replaceAll('/', '');
+      if (hostOrPath == 'connect-hub') {
+        final sessionCode = uri.queryParameters['session_code'];
+        final callbackUrl = uri.queryParameters['callback_url'] ?? 'ekahub://link-callback';
+        if (sessionCode != null && sessionCode.isNotEmpty) {
+          LoggerService.i('Triggering deferred deep link sheet on target route: ${Get.currentRoute}', tag: 'HubDeepLink');
+          _presentConfirmationSheet(sessionCode, callbackUrl);
+        }
+      } else if (hostOrPath == 'transactions' ||
+          hostOrPath == 'expenses' ||
+          hostOrPath == 'expense' ||
+          hostOrPath == 'transaction' ||
+          hostOrPath == 'income' ||
+          hostOrPath == 'incomes') {
+        _handleTransactionNavigation(uri);
       }
     }
+  }
+
+  void _handleTransactionNavigation(Uri uri) {
+    pendingDeepLinkUri = uri;
+    void executeNav() {
+      if (Get.context == null || Get.currentRoute == Routes.splash || Get.currentRoute.isEmpty) {
+        Future.delayed(const Duration(milliseconds: 150), executeNav);
+        return;
+      }
+
+      final txId = uri.queryParameters['id'] ??
+          uri.queryParameters['transaction_id'] ??
+          (uri.pathSegments.isNotEmpty &&
+                  !['transactions', 'expenses', 'incomes', 'expense', 'income', 'transaction']
+                      .contains(uri.pathSegments.last)
+              ? uri.pathSegments.last
+              : null);
+      final sort = uri.queryParameters['sort'];
+      final search = uri.queryParameters['search'];
+      final rawType = uri.queryParameters['type'];
+
+      final hostOrPath = uri.host.isNotEmpty ? uri.host : uri.path.replaceAll('/', '');
+      String? targetType = rawType;
+      if (targetType == null || targetType.isEmpty) {
+        if (hostOrPath == 'expenses' || hostOrPath == 'expense') {
+          targetType = 'Expense';
+        } else if (hostOrPath == 'incomes' || hostOrPath == 'income') {
+          targetType = 'Income';
+        }
+      }
+
+      if (Get.currentRoute != Routes.transactions) {
+        Get.toNamed(Routes.transactions);
+      }
+
+      Future.delayed(const Duration(milliseconds: 350), () async {
+        if (Get.isRegistered<TransactionController>()) {
+          final txController = Get.find<TransactionController>();
+
+          if (targetType != null && targetType.isNotEmpty) {
+            final formattedType = targetType.toLowerCase() == 'expense'
+                ? 'Expense'
+                : (targetType.toLowerCase() == 'income' ? 'Income' : '');
+            if (formattedType.isNotEmpty && txController.selectedType.value != formattedType) {
+              txController.selectedType.value = formattedType;
+            }
+          }
+
+          if (sort != null && sort.isNotEmpty) {
+            var mappedSort = sort.toLowerCase();
+            if (mappedSort == 'largest') mappedSort = 'highest';
+            if (mappedSort == 'smallest') mappedSort = 'lowest';
+            txController.selectedSort.value = mappedSort;
+          }
+
+          if (search != null && search.isNotEmpty) {
+            txController.searchController.text = search;
+            txController.searchQuery.value = search;
+          }
+
+          txController.fetchTransactions();
+
+          if (txId != null && txId.isNotEmpty && txId != 'all') {
+            final txDetail = await txController.getTransactionDetail(txId);
+            if (txDetail != null && Get.context != null) {
+              txController.loadTransactionDetail(txDetail);
+              Get.bottomSheet(
+                TransactionDetailSheet(initialTransaction: txDetail),
+                isScrollControlled: true,
+              );
+            }
+          }
+        }
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      executeNav();
+    });
   }
 
   void _presentConfirmationSheet(String sessionCode, String callbackUrl) {

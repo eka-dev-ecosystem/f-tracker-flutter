@@ -267,7 +267,7 @@ class TransactionCard extends GetView<TransactionController> {
     AppHaptics.selection();
     controller.loadTransactionDetail(transaction);
     Get.bottomSheet(
-      _TransactionDetailSheet(
+      TransactionDetailSheet(
         initialTransaction: transaction,
         onDelete: onDelete,
       ),
@@ -285,11 +285,12 @@ class TransactionCard extends GetView<TransactionController> {
   }
 }
 
-class _TransactionDetailSheet extends GetView<TransactionController> {
+class TransactionDetailSheet extends GetView<TransactionController> {
   final TransactionModel initialTransaction;
   final VoidCallback? onDelete;
 
-  const _TransactionDetailSheet({
+  const TransactionDetailSheet({
+    super.key,
     required this.initialTransaction,
     this.onDelete,
   });
