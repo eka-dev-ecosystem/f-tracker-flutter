@@ -31,6 +31,7 @@ jobs:
       enable_semantic_release: false
       update_pubspec: false
       upload_to_testflight: ${{ github.event_name == 'workflow_run' || inputs.upload_to_testflight == true }}
+      runs_on: xcode-27
     secrets:
       ENV_FILE: ${{ secrets.ENV_FILE }}
       APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
